@@ -12,5 +12,5 @@
 ```bash
 # 安装依赖
 pip install -r requirement.txt
-FLASK_APP=app.py flask run 
+FLASK_APP=app.py GITHUB_WEBHOOK_SECRET_TOKEN=<实际的secret> flask run 
 ```
