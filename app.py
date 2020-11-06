@@ -4,7 +4,7 @@
 # @File: app.py
 import configparser
 import hmac
-import os
+import subprocess
 from pathlib import Path
 from threading import Thread
 
@@ -77,4 +77,4 @@ def event_handler():
 
 def exec_shell_script(script):
     app.logger.info(f"executing shell script from {script}")
-    os.subprocess.run(args=script.split(" "))
+    subprocess.run(args=script.split(" "))
