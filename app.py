@@ -21,8 +21,9 @@ config_parser = configparser.ConfigParser()
 config_parser.read(config_path_str, encoding="utf8")
 
 mappings = config_parser["Mappings"]
+configs = config_parser["Configs"]
 
-TOKEN = os.environ.get("GITHUB_WEBHOOK_SECRET_TOKEN", "FooBar")
+TOKEN = configs["token"]
 app.logger.debug("Token is " + TOKEN)
 
 @app.route('/webhook/github', methods=['POST'])
@@ -49,7 +50,7 @@ def event_handler():
         digestmod="sha256").hexdigest()
 
     if not hmac.compare_digest(github_signature_sha256, "sha256="+signature):
-        app.logger.debug(f"{github_signature_sha256} not equal to {signature}")
+        app.logger.debug(f"{github_signature_sha256} not equal to sha256={signature}")
         abort(400)
 
     # 判断更新的仓库、分支和推送者
@@ -78,4 +79,4 @@ def event_handler():
 
 def exec_shell_script(script):
     app.logger.info(f"executing shell script from {script}")
-    subprocess.run(args=script.split(" "))
+    subprocess.run(script, shell=True)
