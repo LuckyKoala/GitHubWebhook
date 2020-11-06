@@ -15,12 +15,14 @@ app = Flask(__name__)
 config_path_str = os.path.join(os.path.abspath(os.curdir), "config.ini")
 config_path = Path(config_path_str)
 if not config_path.is_file():
-    print("config.ini not found, try copy config-default.ini to config.ini and do according editing")
+    app.logger.warning("config.ini not found, try copy config-default.ini to config.ini and do according editing")
 config_parser = configparser.ConfigParser()
 config_parser.read(config_path_str, encoding="utf8")
 
 mappings = config_parser["Mappings"]
 
+TOKEN = os.environ.get("GITHUB_WEBHOOK_SECRET_TOKEN", "FooBar")
+app.logger.debug("Token is " + TOKEN)
 
 @app.route('/webhook/github', methods=['POST'])
 def event_handler():
@@ -29,22 +31,24 @@ def event_handler():
     github_signature_sha256 = request.headers.get("X-Hub-Signature-256")
 
     if github_event is None:
+        app.logger.debug("github_event is None")
         abort(400)
     elif github_event == "ping":
         return jsonify({
             "status": "ok"
         })
     elif github_event != "push" or github_signature_sha256 is None:
+        app.logger.debug("event not push or signature is None")
         abort(400)
 
     # 验证签名
     signature = hmac.new(
-        key=str.encode(os.environ.get("GITHUB_WEBHOOK_SECRET_TOKEN", "FooBar")),
+        key=str.encode(TOKEN),
         msg=request.data,
         digestmod="sha256").hexdigest()
 
     if not hmac.compare_digest(github_signature_sha256, "sha256="+signature):
-        print(f"{github_signature_sha256} not equal to {signature}")
+        app.logger.debug(f"{github_signature_sha256} not equal to {signature}")
         abort(400)
 
     # 判断更新的仓库、分支和推送者
@@ -54,10 +58,11 @@ def event_handler():
         repo_name = json["repository"]["name"]
         commit_id_after = json["after"]
         sender_login = json["sender"]["login"]
-    except KeyError:
+    except KeyError as e:
+        app.logger.debug("KeyError => " + str(e))
         abort(400)
 
-    print(f"<{commit_id_after}> {sender_login} push to {repo_name} with {ref}")
+    app.logger.info(f"<{commit_id_after}> {sender_login} push to {repo_name} with {ref}")
 
     branch = ref.split("refs/heads/")[1]
     key = f"{repo_name}/{branch}"
@@ -71,5 +76,5 @@ def event_handler():
 
 
 def exec_shell_script(script):
-    print(f"executing shell script from {script}")
+    app.logger.info(f"executing shell script from {script}")
     os.subprocess.run(args=script.split(" "))
