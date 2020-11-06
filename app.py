@@ -2,12 +2,24 @@
 # @Author: LuckyKoala
 # @Time: 2020/11/5
 # @File: app.py
+import configparser
 import hmac
 import os
+from pathlib import Path
+from threading import Thread
 
 from flask import Flask, request, jsonify, abort
 
 app = Flask(__name__)
+
+config_path_str = os.path.join(os.path.abspath(os.curdir), "config.ini")
+config_path = Path(config_path_str)
+if not config_path.is_file():
+    print("config.ini not found, try copy config-default.ini to config.ini and do according editing")
+config_parser = configparser.ConfigParser()
+config_parser.read(config_path_str, encoding="utf8")
+
+mappings = config_parser["Mappings"]
 
 
 @app.route('/webhook/github', methods=['POST'])
@@ -39,14 +51,25 @@ def event_handler():
     json = request.get_json()
     try:
         ref = json["ref"]
-        repo_full_name = json["repository"]["full_name"]
+        repo_name = json["repository"]["name"]
         commit_id_after = json["after"]
         sender_login = json["sender"]["login"]
     except KeyError:
         abort(400)
 
-    print(f"<{commit_id_after}> {sender_login} push to {repo_full_name} with {ref}")
+    print(f"<{commit_id_after}> {sender_login} push to {repo_name} with {ref}")
+
+    branch = ref.split("refs/heads/")[1]
+    key = f"{repo_name}/{branch}"
+    if key in mappings:
+        cmd = mappings[key]
+        Thread(target=exec_shell_script, args=(cmd,), daemon=True).start()
 
     return jsonify({
         "status": "ok"
     })
+
+
+def exec_shell_script(script):
+    print(f"executing shell script from {script}")
+    os.subprocess.run(args=script.split(" "))
